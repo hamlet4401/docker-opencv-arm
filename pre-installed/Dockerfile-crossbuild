@@ -1,17 +1,18 @@
-ARG PYTHON_VERSION_SHORT=3.5
-ARG OPENCV_VERSION=4.0.0
+ARG PYTHON_VERSION_SHORT=3.9
+ARG OPENCV_VERSION=4.5.3
 ARG CPU_CORES=4
 
+
 # Download qemu-user-static for amd64
-# to build and run on x86_64 (requires binfmt_misc)
-FROM ubuntu as x86_64
+# to build and run on arm64 (requires binfmt_misc)
+FROM --platform=linux/amd64 ubuntu:21.04 as amd64
 RUN set -e; \
     apt-get update; \
     apt-get install -y --no-install-recommends qemu-user-static; \
     rm -rf /var/lib/apt/lists/*
 
-FROM arm32v7/python:${PYTHON_VERSION_SHORT}-stretch
-COPY --from=x86_64 /usr/bin/qemu-*-static /usr/bin/
+FROM --platform=linux/arm64/v8 arm64v8/python:${PYTHON_VERSION_SHORT}
+COPY --from=amd64 /usr/bin/qemu-*-static /usr/bin/
 
 ARG DEBIAN_FRONTEND=noninteractive
 
@@ -30,7 +31,7 @@ RUN set -e; \
         cmake \
         gcc \
         # Required dependencies
-        python-numpy \
+        python3-numpy \
         libavcodec-dev \
         libavformat-dev \
         libswscale-dev \
@@ -72,7 +73,9 @@ RUN set -e; \
     cd /tmp/opencv-$OPENCV_VERSION; \
     mkdir build; \
     cd build; \
-    cmake -D CMAKE_BUILD_TYPE=RELEASE \
+    cmake -D CMAKE_CXX_FLAGS=-std=c++11 \
+        -D ENABLE_PRECOMPILED_HEADERS=OFF \
+        -D CMAKE_BUILD_TYPE=RELEASE \
         -D OPENCV_EXTRA_MODULES_PATH=/tmp/opencv_contrib-$OPENCV_VERSION/modules \
         -D CMAKE_INSTALL_PREFIX=/usr/local \
         # Build without GUI support
